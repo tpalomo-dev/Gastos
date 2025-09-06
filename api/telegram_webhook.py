@@ -1,9 +1,12 @@
 import os
 import aiohttp
+import logging
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 app = FastAPI()
+
+logging.basicConfig(level=logging.INFO)
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 
@@ -41,7 +44,6 @@ async def telegram_webhook(req: Request):
         print(f"Downloaded audio {file_id}")
 
         return JSONResponse({"status": "audio_received", "file_id": file_id})
-
 
     elif message.get("text"):
         text = message["text"]
