@@ -10,7 +10,7 @@ logging.basicConfig(level=logging.INFO)
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 
-@app.post("/telegram-webhook")
+@app.post("/")
 async def telegram_webhook(req: Request):
     data = await req.json()
     message = data.get("message")
