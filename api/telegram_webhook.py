@@ -3,12 +3,22 @@ import aiohttp
 import logging
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+import asyncpg
 
 app = FastAPI()
 
 logging.basicConfig(level=logging.INFO)
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+@app.on_event("startup")
+async def startup():
+    app.state.db_pool = await asyncpg.create_pool(DATABASE_URL)
+
+@app.on_event("shutdown")
+async def shutdown():
+    await app.state.db_pool.close()
 
 @app.get("/")
 def read_root():
@@ -70,10 +80,28 @@ async def telegram_webhook(req: Request):
 
         return JSONResponse({"status": "text_received", "text": text})
 
+    elif message.get("text"):
+        text = message["text"]
+        chat_id = message["chat"]["id"]
+        msg_type = "text"
+        amount = 0  # or calculate if you want
+
+        # Save to Neon
+        async with app.state.db_pool.acquire() as conn:
+            await conn.execute(
+                "INSERT INTO telegram_messages (text, type, amount) VALUES ($1, $2, $3)",
+                text, msg_type, amount
+            )
+    
+        # Optional: send a reply
+        async with aiohttp.ClientSession() as session:
+            await session.post(
+                f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
+                json={"chat_id": chat_id, "text": f"You said: {text}"},
+            )
+    
+        return JSONResponse({"status": "text_received", "text": text})
+
     else:
         return JSONResponse({"status": "unknown_message_type"})
-
-# # This is important for Vercel
-# if __name__ == "__main__":
-#     import uvicorn
-#     uvicorn.run(app, host="0.0.0.0", port=8000)
+    
