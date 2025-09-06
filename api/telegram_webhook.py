@@ -73,7 +73,7 @@ async def telegram_webhook(req: Request):
     else:
         return JSONResponse({"status": "unknown_message_type"})
 
-# This is important for Vercel
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+# # This is important for Vercel
+# if __name__ == "__main__":
+#     import uvicorn
+#     uvicorn.run(app, host="0.0.0.0", port=8000)
