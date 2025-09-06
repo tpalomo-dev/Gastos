@@ -65,16 +65,17 @@
 #     else:
 #         return JSONResponse({"status": "unknown_message_type"})
 
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI
 
 app = FastAPI()
 
-@app.post("/")
-async def root(req: Request):
-    data = await req.json()
-    print("Received data:", data)  # shows in Vercel logs
-    return JSONResponse({"status": "ok", "data": data})
+@app.get("/")
+def read_root():
+    return {"message": "Hello World from FastAPI on Vercel!"}
+
+@app.get("/api/health")
+def health_check():
+    return {"status": "healthy"}
 
 # This is important for Vercel
 if __name__ == "__main__":
