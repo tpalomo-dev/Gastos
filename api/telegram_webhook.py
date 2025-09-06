@@ -75,3 +75,8 @@ async def root(req: Request):
     data = await req.json()
     print("Received data:", data)  # shows in Vercel logs
     return JSONResponse({"status": "ok", "data": data})
+
+# This is important for Vercel
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
