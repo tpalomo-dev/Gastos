@@ -8,21 +8,37 @@ on:
 jobs:
   check-vercel-usage:
     runs-on: ubuntu-latest
+    outputs:
+      usage-ok: ${{ steps.usage-check.outputs.usage-ok }}
     steps:
-        - name: Check Vercel Usage
-          id: usage
-          run: |
-            response=$(curl -s -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" \
-              https://api.vercel.com/v1/usage)
-            echo "Raw response: $response"
-            usage=$(echo $response | jq '.limits.functionInvocations.used')
-            echo "Used invocations: $usage"
-            if [ "$usage" -gt 112500 ]; then
-              echo "Usage above 90%, canceling deployment"
-              exit 1
+      - name: Check Vercel Usage
+        id: usage-check
+        run: |
+          set -e
+          echo "Fetching Vercel usage..."
+          response=$(curl -s -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" \
+            https://api.vercel.com/v1/usage)
+          echo "Raw response: $response"
+
+          # Safely extract usage; default to 0 if missing
+          usage=$(echo "$response" | jq -r '.limits.functionInvocations.used // 0')
+          echo "Used function invocations: $usage"
+
+          # Define safe threshold (e.g., 50% of free tier limit)
+          SAFE_LIMIT=56250  # 50% of 112500
+
+          if [ "$usage" -ge "$SAFE_LIMIT" ]; then
+            echo "Usage too high, canceling deployment"
+            echo "::set-output name=usage-ok::false"
+            exit 0
+          else
+            echo "Usage is safe, proceeding to deploy"
+            echo "::set-output name=usage-ok::true"
+          fi
 
   deploy:
     needs: check-vercel-usage
+    if: needs.check-vercel-usage.outputs.usage-ok == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -32,5 +48,3 @@ jobs:
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
           working-directory: .
-
-
