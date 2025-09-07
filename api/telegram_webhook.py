@@ -10,6 +10,7 @@ app = FastAPI()
 logging.basicConfig(level=logging.INFO)
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
+
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 async def get_db_pool():
