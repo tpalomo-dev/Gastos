@@ -45,10 +45,14 @@ async def telegram_webhook(req: Request):
     if not message:
         return JSONResponse({"status": "no_message"})
 
-    if message.get("voice"):
-        file_id = message["voice"]["file_id"]
+    chat_id = message["chat"]["id"]
 
-        async with aiohttp.ClientSession() as session:
+    async with aiohttp.ClientSession() as session:
+
+        # Handle voice messages
+        if message.get("voice"):
+            file_id = message["voice"]["file_id"]
+
             # Get file info
             async with session.get(
                 f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getFile?file_id={file_id}"
@@ -62,58 +66,40 @@ async def telegram_webhook(req: Request):
             async with session.get(file_url) as audio_resp:
                 audio_content = await audio_resp.read()
 
-        # Save to ephemeral storage
-        tmp_path = f"/tmp/{file_id}.ogg"
-        with open(tmp_path, "wb") as f:
-            f.write(audio_content)
+            tmp_path = f"/tmp/{file_id}.ogg"
+            with open(tmp_path, "wb") as f:
+                f.write(audio_content)
 
-        # Optional: enqueue for transcription
-        print(f"Downloaded audio {file_id}")
+            print(f"Downloaded audio {file_id}")
 
-        return JSONResponse({"status": "audio_received", "file_id": file_id})
-
-    # elif message.get("text"):
-    #     text = message["text"]
-
-    #     # Example: do something else with text
-    #     # e.g., echo back, log it, or send to another API
-    #     print(f"Received text message: {text}")
-
-    #     # Example: send a reply to the user
-    #     chat_id = message["chat"]["id"]
-    #     async with aiohttp.ClientSession() as session:
-    #         await session.post(
-    #             f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
-    #             json={"chat_id": chat_id, "text": f"You said: {text}"},
-    #         )
-
-    #     return JSONResponse({"status": "text_received", "text": text})
-
-    elif message.get("text"):
-        text = message["text"]
-        chat_id = message["chat"]["id"]
-        msg_type = "text"
-        amount = 0  # or calculate if you want
-
-        conn = await asyncpg.connect(DATABASE_URL)
-        
-        try:
-            await conn.execute(
-                "INSERT INTO telegram_messages (text, type, amount) VALUES ($1, $2, $3)",
-                text, msg_type, amount
-            )
-        finally:
-            await conn.close()
-        
-        # Optional: send a reply
-        async with aiohttp.ClientSession() as session:
+            # Reply to user
             await session.post(
                 f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
-                json={"chat_id": chat_id, "text": f"You said: {text}"},
+                json={"chat_id": chat_id, "text": "Audio received!"}
             )
-    
-        return JSONResponse({"status": "text_received", "text": text})
 
-    else:
-        return JSONResponse({"status": "unknown_message_type"})
-    
+            return JSONResponse({"status": "audio_received", "file_id": file_id})
+
+        # Handle text messages
+        elif message.get("text"):
+            text = message["text"]
+            msg_type = "text"
+            amount = 0
+
+            pool = await get_db_pool()
+            async with pool.acquire() as conn:
+                await conn.execute(
+                    "INSERT INTO telegram_messages (text, type, amount) VALUES ($1, $2, $3)",
+                    text, msg_type, amount
+                )
+
+            # Reply to user
+            await session.post(
+                f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
+                json={"chat_id": chat_id, "text": f"You said: {text}"}
+            )
+
+            return JSONResponse({"status": "text_received", "text": text})
+
+        else:
+            return JSONResponse({"status": "unknown_message_type"})
