@@ -1,7 +1,7 @@
 import os
 import aiohttp
 import logging
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 import asyncpg
 
@@ -19,6 +19,10 @@ async def startup():
 @app.on_event("shutdown")
 async def shutdown():
     await app.state.db_pool.close()
+
+@app.get("/favicon.ico")
+async def favicon():
+    return Response(status_code=204)
 
 @app.get("/")
 def read_root():
@@ -63,22 +67,22 @@ async def telegram_webhook(req: Request):
 
         return JSONResponse({"status": "audio_received", "file_id": file_id})
 
-    elif message.get("text"):
-        text = message["text"]
+    # elif message.get("text"):
+    #     text = message["text"]
 
-        # Example: do something else with text
-        # e.g., echo back, log it, or send to another API
-        print(f"Received text message: {text}")
+    #     # Example: do something else with text
+    #     # e.g., echo back, log it, or send to another API
+    #     print(f"Received text message: {text}")
 
-        # Example: send a reply to the user
-        chat_id = message["chat"]["id"]
-        async with aiohttp.ClientSession() as session:
-            await session.post(
-                f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
-                json={"chat_id": chat_id, "text": f"You said: {text}"},
-            )
+    #     # Example: send a reply to the user
+    #     chat_id = message["chat"]["id"]
+    #     async with aiohttp.ClientSession() as session:
+    #         await session.post(
+    #             f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
+    #             json={"chat_id": chat_id, "text": f"You said: {text}"},
+    #         )
 
-        return JSONResponse({"status": "text_received", "text": text})
+    #     return JSONResponse({"status": "text_received", "text": text})
 
     elif message.get("text"):
         text = message["text"]
