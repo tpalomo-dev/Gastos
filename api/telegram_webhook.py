@@ -12,16 +12,21 @@ logging.basicConfig(level=logging.INFO)
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-@app.on_event("startup")
-async def startup():
-    app.state.db_pool = await asyncpg.create_pool(DATABASE_URL)
+async def get_db_pool():
+    if not hasattr(app.state, "db_pool"):
+        app.state.db_pool = await asyncpg.create_pool(DATABASE_URL)
+    return app.state.db_pool
 
 @app.on_event("shutdown")
 async def shutdown():
     await app.state.db_pool.close()
 
 @app.get("/favicon.ico")
-async def favicon():
+async def faviconico():
+    return Response(status_code=204)
+
+@app.get("/favicon.png")
+async def faviconpng():
     return Response(status_code=204)
 
 @app.get("/")
@@ -90,13 +95,13 @@ async def telegram_webhook(req: Request):
         msg_type = "text"
         amount = 0  # or calculate if you want
 
-        # Save to Neon
-        async with app.state.db_pool.acquire() as conn:
+        db_pool = await get_db_pool()
+        async with db_pool.acquire() as conn:
             await conn.execute(
                 "INSERT INTO telegram_messages (text, type, amount) VALUES ($1, $2, $3)",
                 text, msg_type, amount
             )
-    
+        
         # Optional: send a reply
         async with aiohttp.ClientSession() as session:
             await session.post(
