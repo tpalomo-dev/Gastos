@@ -95,12 +95,15 @@ async def telegram_webhook(req: Request):
         msg_type = "text"
         amount = 0  # or calculate if you want
 
-        db_pool = await get_db_pool()
-        async with db_pool.acquire() as conn:
+        conn = await asyncpg.connect(DATABASE_URL)
+        
+        try:
             await conn.execute(
                 "INSERT INTO telegram_messages (text, type, amount) VALUES ($1, $2, $3)",
                 text, msg_type, amount
             )
+        finally:
+            await conn.close()
         
         # Optional: send a reply
         async with aiohttp.ClientSession() as session:
