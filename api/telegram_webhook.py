@@ -110,52 +110,36 @@ import aiohttp
 import logging
 import asyncio
 import uuid
-from fastapi import FastAPI, Request, Response
-from fastapi.responses import JSONResponse
+import json
 import asyncpg
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 
+# Initialize FastAPI app
 app = FastAPI()
 logging.basicConfig(level=logging.INFO)
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-# ---------- Startup & Shutdown ----------
+# Global connection pool (will be created on first request)
+db_pool = None
+http_session = None
 
-@app.on_event("startup")
-async def startup():
-    app.state.db_pool = await asyncpg.create_pool(DATABASE_URL)
-    app.state.http_session = aiohttp.ClientSession()
+async def get_db_pool():
+    global db_pool
+    if db_pool is None:
+        db_pool = await asyncpg.create_pool(DATABASE_URL)
+    return db_pool
 
-@app.on_event("shutdown")
-async def shutdown():
-    await app.state.db_pool.close()
-    await app.state.http_session.close()
-
-# ---------- Favicon endpoints ----------
-
-@app.get("/favicon.ico")
-async def faviconico():
-    return Response(status_code=204)
-
-@app.get("/favicon.png")
-async def faviconpng():
-    return Response(status_code=204)
-
-# ---------- Health & Root ----------
-
-@app.get("/")
-def read_root():
-    return {"message": "Hello World from FastAPI on Vercel!"}
-
-@app.get("/api/health")
-def health_check():
-    return {"status": "healthy"}
-
-# ---------- Helper: send Telegram message asynchronously ----------
+async def get_http_session():
+    global http_session
+    if http_session is None:
+        http_session = aiohttp.ClientSession()
+    return http_session
 
 async def send_telegram_message(chat_id: int, text: str):
-    session: aiohttp.ClientSession = app.state.http_session
+    session = await get_http_session()
     try:
         await session.post(
             f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
@@ -163,8 +147,6 @@ async def send_telegram_message(chat_id: int, text: str):
         )
     except Exception as e:
         logging.error(f"Failed to send Telegram message: {e}")
-
-# ---------- Telegram webhook ----------
 
 @app.post("/telegram_webhook")
 async def telegram_webhook(req: Request):
@@ -175,7 +157,7 @@ async def telegram_webhook(req: Request):
             return JSONResponse({"status": "no_message"})
 
         chat_id = message["chat"]["id"]
-        session: aiohttp.ClientSession = app.state.http_session
+        session = await get_http_session()
 
         # Handle voice messages
         if message.get("voice"):
@@ -197,7 +179,7 @@ async def telegram_webhook(req: Request):
 
             logging.info(f"Downloaded audio {file_id} to {tmp_path}")
 
-            # Send Telegram reply asynchronously (won’t block)
+            # Send Telegram reply asynchronously (won't block)
             asyncio.create_task(send_telegram_message(chat_id, "Audio received!"))
 
             return JSONResponse({"status": "audio_received", "file_id": file_id})
@@ -209,7 +191,7 @@ async def telegram_webhook(req: Request):
             amount = 0
 
             async def process_text():
-                pool = app.state.db_pool
+                pool = await get_db_pool()
                 try:
                     async with pool.acquire() as conn:
                         async with conn.transaction():
@@ -232,3 +214,25 @@ async def telegram_webhook(req: Request):
     except Exception as e:
         logging.exception("Webhook handler failed")
         return JSONResponse({"status": "error", "error": str(e)}, status_code=500)
+
+# Add other endpoints
+@app.get("/")
+def read_root():
+    return {"message": "Hello World from FastAPI on Vercel!"}
+
+@app.get("/api/health")
+def health_check():
+    return {"status": "healthy"}
+
+@app.get("/favicon.ico")
+async def faviconico():
+    from fastapi.responses import Response
+    return Response(status_code=204)
+
+@app.get("/favicon.png")
+async def faviconpng():
+    from fastapi.responses import Response
+    return Response(status_code=204)
+
+# Vercel handler
+handler = app
