@@ -94,14 +94,12 @@ async def telegram_webhook(req: Request):
                 return JSONResponse({"status": "error", "error": "download_failed"})
 
             try:
-                # Wrap bytes in a BytesIO for Hugging Face
+                # Pass raw bytes directly to Hugging Face
                 logger.info("Preparing audio for speech recognition")
-                audio_file = io.BytesIO(ogg_bytes)
-                audio_file.name = "audio.ogg"  # Some APIs need a filename
                 
                 logger.info("Calling Hugging Face speech recognition API")
                 output = client.automatic_speech_recognition(
-                    audio_file, model="openai/whisper-large-v3"
+                    ogg_bytes, model="openai/whisper-large-v3"
                 )
                 logger.info(f"Speech recognition output: {output}")
 
