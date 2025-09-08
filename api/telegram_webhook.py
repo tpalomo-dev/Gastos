@@ -99,7 +99,8 @@ async def telegram_webhook(req: Request):
                 
                 logger.info("Calling Hugging Face speech recognition API")
                 output = client.automatic_speech_recognition(
-                    ogg_bytes, model="openai/whisper-large-v3"
+                    # ogg_bytes, model="openai/whisper-large-v3"
+                    ogg_bytes, model="openai/whisper-tiny"
                 )
                 logger.info(f"Speech recognition output: {output}")
 
