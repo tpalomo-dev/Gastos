@@ -27,7 +27,9 @@ if not TELEGRAM_TOKEN:
 if not HF_TOKEN:
     logger.error("HF_TOKEN not found in environment variables")
 
-client = InferenceClient(provider="fal-ai", api_key=HF_TOKEN)
+client = InferenceClient(
+    # provider="fal-ai", 
+    api_key=HF_TOKEN)
 
 @app.post("/telegram_webhook")
 async def telegram_webhook(req: Request):
