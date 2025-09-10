@@ -7,7 +7,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 import asyncpg
 from huggingface_hub import InferenceClient
-
+from functions import predict_category
 app = FastAPI()
 
 # Enhanced logging configuration
@@ -26,8 +26,6 @@ if not TELEGRAM_TOKEN:
     logger.error("TELEGRAM_TOKEN not found in environment variables")
 if not HF_TOKEN:
     logger.error("HF_TOKEN not found in environment variables")
-
-
 
 client = InferenceClient(
     api_key=HF_TOKEN,
