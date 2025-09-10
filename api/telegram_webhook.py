@@ -27,8 +27,13 @@ if not TELEGRAM_TOKEN:
 if not HF_TOKEN:
     logger.error("HF_TOKEN not found in environment variables")
 
-client = InferenceClient(provider="fal-ai", api_key=HF_TOKEN)
 
+
+client = InferenceClient(
+    api_key=HF_TOKEN,
+    headers={"Content-Type": "audio/ogg"}  # since your file is mp3
+)
+# client = InferenceClient(provider="fal-ai", api_key=HF_TOKEN)
 # client = InferenceClient(provider="hf-inference", api_key=HF_TOKEN)
 
 @app.post("/telegram_webhook")
@@ -101,9 +106,11 @@ async def telegram_webhook(req: Request):
                 
                 logger.info("Calling Hugging Face speech recognition API")
                 output = client.automatic_speech_recognition(
-                    ogg_bytes, model="openai/whisper-large-v3"
-                    # ogg_bytes, model="openai/whisper-large-v3-turbo"
+                    ogg_bytes,
+                    # , model="openai/whisper-large-v3"
+                    model="openai/whisper-large-v3-turbo"
                 )
+                
                 logger.info(f"Speech recognition output: {output}")
 
             except Exception as e:
