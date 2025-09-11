@@ -8,11 +8,11 @@ from fastapi.responses import JSONResponse
 import asyncpg
 from huggingface_hub import InferenceClient
 import sys
-import os
+
 
 sys.path.append(os.path.dirname(__file__))
 
-from functions_for_pred import *
+from functions_for_pred import predict_category
 
 app = FastAPI()
 
@@ -132,11 +132,13 @@ async def telegram_webhook(req: Request):
             try:
                 logger.info(f"Processed audio {file_id}")
                 
+                prediction = predict_category(output['text'])
+                
                 # Send reply
                 async with aiohttp.ClientSession() as session:
                     response = await session.post(
                         f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
-                        json={"chat_id": chat_id, "text": f"Dijiste: {output['text']}"},
+                        json={"chat_id": chat_id, "text": f"Dijiste: {output['text']} con categoría {prediction}"},
                     )
                     if response.status != 200:
                         logger.error(f"Failed to send reply: {response.status}")
