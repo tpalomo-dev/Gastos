@@ -10,7 +10,6 @@ from huggingface_hub import InferenceClient
 # from functions import predict_category
 app = FastAPI()
 
-
 # Enhanced logging configuration
 logging.basicConfig(
     level=logging.INFO,
