@@ -26,10 +26,7 @@ MULTIPLICADORES = {
 }
 
 def normalizar_numero_digitos(texto):
-    # Eliminar todo lo que no sea dígito, punto o coma
-    texto = re.sub(r'[^\d.,]', '', texto)
-    # Reemplazamos separadores de miles por nada (ej: 25,000 -> 25000)
-    texto = re.sub(r'(?<=\d)[.,](?=\d{3}\b)', '', texto)
+    texto = re.sub(r'[^\d]', '', texto)  # solo dígitos
     return texto
 
 def palabras_a_numero(texto):
@@ -52,31 +49,30 @@ def palabras_a_numero(texto):
             if mult >= 1000:
                 total += parcial
                 parcial = 0
-        else:
-            # intentamos convertir números ya normalizados
-            try:
-                parcial += int(normalizar_numero_digitos(t))
-            except:
-                pass
     total += parcial
     return total
 
 def separar_texto_valor(texto):
-    # Normalizamos los números en dígitos
-    texto_normalizado = normalizar_numero_digitos(texto)
+    total = 0
     
-    # Calculamos el valor total
-    total = palabras_a_numero(texto_normalizado)
+    # Extraer números en dígitos
+    numeros_digitos = re.findall(r'\d[\d.,]*', texto)
+    for n in numeros_digitos:
+        total += int(normalizar_numero_digitos(n))
     
-    # Limpiamos el texto de palabras numéricas
+    # Extraer números en palabras
+    total += palabras_a_numero(texto)
+    
+    # Limpiar texto de palabras numéricas y dígitos
     todas_las_palabras_numeros = set(UNIDADES.keys()) | set(DECENAS.keys()) | set(CENTENAS.keys()) | set(MULTIPLICADORES.keys())
-    
-    texto_final = ' '.join([
-    w for w in re.split(r'[\s-]+', texto)
-    if w.lower() not in todas_las_palabras_numeros 
-    and not re.search(r'\d', w)  # elimina cualquier token que tenga un dígito
+    tokens = re.split(r'(\s+)', texto)  # mantenemos espacios
+    texto_final = ''.join([
+        t for t in tokens
+        if t.strip().lower() not in todas_las_palabras_numeros and not re.match(r'^\d[\d.,]*$', t.strip())
     ])
     
-    return texto_final.strip(), total
+    texto_final = texto_final.strip(",. $")  # quitamos signos sobrantes
+    
+    return texto_final, total
 
-print(separar_texto_valor("Uber delivery $25,000"))
+print(separar_texto_valor("Uber Delivery, $25,000 pesos."))
