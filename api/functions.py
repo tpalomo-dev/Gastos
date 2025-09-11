@@ -8,8 +8,6 @@ import os
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MODEL_DIR = os.path.join(BASE_DIR, "lightweight_model")
 
-model = load_model(MODEL_DIR)
-
 # --- Load exported model ---
 def load_model(output_dir):
     # TF-IDF
@@ -102,6 +100,8 @@ def predict(X, coef, intercept):
 # --- Inference example ---
 
 def predict_category(text: str):
+    
+    model = load_model(MODEL_DIR)
     
     # Preprocess
     text_proc = preprocess_spanish_text(text)
