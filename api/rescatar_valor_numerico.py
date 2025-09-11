@@ -26,7 +26,9 @@ MULTIPLICADORES = {
 }
 
 def normalizar_numero_digitos(texto):
-    # Reemplazamos separadores de miles por nada
+    # Eliminar todo lo que no sea dígito, punto o coma
+    texto = re.sub(r'[^\d.,]', '', texto)
+    # Reemplazamos separadores de miles por nada (ej: 25,000 -> 25000)
     texto = re.sub(r'(?<=\d)[.,](?=\d{3}\b)', '', texto)
     return texto
 
@@ -68,6 +70,13 @@ def separar_texto_valor(texto):
     
     # Limpiamos el texto de palabras numéricas
     todas_las_palabras_numeros = set(UNIDADES.keys()) | set(DECENAS.keys()) | set(CENTENAS.keys()) | set(MULTIPLICADORES.keys())
-    texto_final = ' '.join([w for w in re.split(r'[\s-]+', texto) if w.lower() not in todas_las_palabras_numeros and not re.match(r'^\d+([.,]\d+)*$', w)])
+    
+    texto_final = ' '.join([
+    w for w in re.split(r'[\s-]+', texto)
+    if w.lower() not in todas_las_palabras_numeros 
+    and not re.search(r'\d', w)  # elimina cualquier token que tenga un dígito
+    ])
     
     return texto_final.strip(), total
+
+print(separar_texto_valor("Uber delivery $25,000"))
