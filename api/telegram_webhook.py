@@ -7,7 +7,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 import asyncpg
 from huggingface_hub import InferenceClient
-from functions import predict_category
+from functions_for_pred import *
 app = FastAPI()
 
 # Enhanced logging configuration
