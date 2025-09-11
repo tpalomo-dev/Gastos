@@ -1,10 +1,8 @@
 import os
-import io
 import logging
 import traceback
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
-import asyncpg
 import sys
 
 sys.path.append(os.path.dirname(__file__))
@@ -18,7 +16,6 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
-
 
 @app.post("/telegram_webhook")
 async def telegram_webhook(req: Request):

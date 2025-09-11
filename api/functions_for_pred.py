@@ -9,6 +9,9 @@ import asyncpg
 from huggingface_hub import InferenceClient
 import logging
 logger = logging.getLogger(__name__)
+import sys
+sys.path.append(os.path.dirname(__file__))
+from rescatar_valor_numerico import separar_texto_valor
 
 # Build paths relative to this script
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -186,14 +189,15 @@ async def save_text_to_db(text: str, category: str, amount: int = 0):
         logger.error(f"Database error: {str(e)}")
 
 async def process_text_message(text: str, chat_id: int):
+    text, amount = separar_texto_valor(text)
     # Predict category
     category = predict_category(text)
     
     # Save text + category to DB
-    await save_text_to_db(text, category)
+    await save_text_to_db(text = text, category = category, amount = amount)
     
     # Send reply to Telegram
-    await send_telegram_message(chat_id, f"Dijiste: {text} con categoría {category}")
+    await send_telegram_message(chat_id, f"Dijiste: {text} con categoría {category} y precio {amount}")
     
     return JSONResponse({"status": "text_received", "text": text, "category": category})
 
@@ -215,5 +219,5 @@ async def process_voice_message(message: dict):
         await send_telegram_message(chat_id, f"Error processing audio: {str(e)}")
         return JSONResponse({"status": "error", "error": "speech_recognition_failed"})
 
-    # 2️⃣ Predict category and 3️⃣ Save transcription + category to DB
+    # Predict category and Save transcription + category to DB
     return await process_text_message(transcription, chat_id)
