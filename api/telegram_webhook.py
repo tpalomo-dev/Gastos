@@ -91,7 +91,6 @@ async def process_text_message(text: str, chat_id: int):
     
     return JSONResponse({"status": "text_received", "text": text, "category": category})
 
-
 async def process_voice_message(message: dict):
     file_id = message["voice"]["file_id"]
     chat_id = message["chat"]["id"]
@@ -125,7 +124,7 @@ async def telegram_webhook(req: Request):
         if message.get("voice"):
             return await process_voice_message(message)
         elif message.get("text"):
-            return await process_text_message(message)
+            return await process_text_message(message["text"], message["chat"]["id"])
         else:
             logger.warning(f"Unknown message type: {message.keys()}")
             return JSONResponse({"status": "unknown_message_type"})
