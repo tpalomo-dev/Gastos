@@ -70,7 +70,7 @@ async def save_text_to_db(text: str, category: str, amount: int = 0):
         conn = await asyncpg.connect(DATABASE_URL)
         try:
             await conn.execute(
-                "INSERT INTO telegram_messages (text, type, amount, category) VALUES ($1, $2, $3)",
+                "INSERT INTO telegram_messages (text, type, amount) VALUES ($1, $2, $3)",
                 text, category, amount
             )
             logger.info("Text message saved to database")
