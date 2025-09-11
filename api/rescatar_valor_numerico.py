@@ -1,23 +1,23 @@
 import re
 
 UNIDADES = {
-    "cero":0, "uno":1, "una":1, "dos":2, "tres":3, "cuatro":4, "cinco":5,
-    "seis":6, "siete":7, "ocho":8, "nueve":9, "diez":10, "once":11,
-    "doce":12, "trece":13, "catorce":14, "quince":15, "dieciséis":16,
-    "dieciseis":16, "diecisiete":17, "dieciocho":18, "diecinueve":19,
-    "veinte":20, "veintiuno":21, "veintidos":22, "veintidós":22, "veintitrés":23,
-    "veintitres":23, "veinticuatro":24, "veinticinco":25, "veintiseis":26,
-    "veintiséis":26, "veintisiete":27, "veintiocho":28, "veintinueve":29
+    "cero":0, "uno":1, "una":1, "dos":2, "tres":3, "cuatro":4, "cinco":5, 
+    "seis":6, "siete":7, "ocho":8, "nueve":9, "diez":10, "once":11, "doce":12, 
+    "trece":13, "catorce":14, "quince":15, "dieciséis":16, "dieciseis":16, 
+    "diecisiete":17, "dieciocho":18, "diecinueve":19, "veinte":20, "veintiuno":21, 
+    "veintidos":22, "veintidós":22, "veintitrés":23, "veintitres":23, "veinticuatro":24, 
+    "veinticinco":25, "veintiseis":26, "veintiséis":26, "veintisiete":27, 
+    "veintiocho":28, "veintinueve":29
 }
 
 DECENAS = {
-    "treinta":30, "cuarenta":40, "cincuenta":50, "sesenta":60, "setenta":70,
-    "ochenta":80, "noventa":90
+    "treinta":30, "cuarenta":40, "cincuenta":50, "sesenta":60, 
+    "setenta":70, "ochenta":80, "noventa":90
 }
 
 CENTENAS = {
-    "cien":100, "ciento":100, "doscientos":200, "trescientos":300,
-    "cuatrocientos":400, "quinientos":500, "seiscientos":600,
+    "cien":100, "ciento":100, "doscientos":200, "trescientos":300, 
+    "cuatrocientos":400, "quinientos":500, "seiscientos":600, 
     "setecientos":700, "ochocientos":800, "novecientos":900
 }
 
@@ -26,14 +26,17 @@ MULTIPLICADORES = {
 }
 
 def normalizar_numero_digitos(texto):
-    texto = re.sub(r'[^\d]', '', texto)  # solo dígitos
+    texto = re.sub(r'[^\d.,]', '', texto)
+    texto = re.sub(r'(?<=\d)[.,](?=\d{3}\b)', '', texto)
     return texto
 
 def palabras_a_numero(texto):
     texto = texto.lower().replace(" y ", " ")
     tokens = re.split(r'[\s-]+', texto)
+    
     total = 0
     parcial = 0
+    
     for t in tokens:
         if t in UNIDADES:
             parcial += UNIDADES[t]
@@ -49,30 +52,46 @@ def palabras_a_numero(texto):
             if mult >= 1000:
                 total += parcial
                 parcial = 0
+    
     total += parcial
     return total
 
 def separar_texto_valor(texto):
-    total = 0
+    valores = []
+    texto_limpio = texto
     
-    # Extraer números en dígitos
-    numeros_digitos = re.findall(r'\d[\d.,]*', texto)
-    for n in numeros_digitos:
-        total += int(normalizar_numero_digitos(n))
+    # Encontrar números en dígitos
+    numeros_digitos = re.finditer(r'[$]?\d[\d.,]*', texto)
+    for match in numeros_digitos:
+        numero_str = match.group()
+        try:
+            valor = int(normalizar_numero_digitos(numero_str))
+            valores.append(valor)
+        except:
+            pass
     
-    # Extraer números en palabras
-    total += palabras_a_numero(texto)
+    # Encontrar números en palabras
+    todas_las_palabras = list(UNIDADES.keys()) + list(DECENAS.keys()) + list(CENTENAS.keys()) + list(MULTIPLICADORES.keys())
+    patron_palabras = r'\b(?:' + '|'.join(todas_las_palabras) + r')(?:\s+(?:' + '|'.join(todas_las_palabras) + r'))*\b'
     
-    # Limpiar texto de palabras numéricas y dígitos
-    todas_las_palabras_numeros = set(UNIDADES.keys()) | set(DECENAS.keys()) | set(CENTENAS.keys()) | set(MULTIPLICADORES.keys())
-    tokens = re.split(r'(\s+)', texto)  # mantenemos espacios
-    texto_final = ''.join([
-        t for t in tokens
-        if t.strip().lower() not in todas_las_palabras_numeros and not re.match(r'^\d[\d.,]*$', t.strip())
-    ])
+    matches_palabras = re.finditer(patron_palabras, texto.lower())
+    for match in matches_palabras:
+        secuencia = match.group()
+        valor = palabras_a_numero(secuencia)
+        valores.append(valor)
     
-    texto_final = texto_final.strip(",. $")  # quitamos signos sobrantes
+    # Limpiar texto removiendo números
+    texto_limpio = re.sub(r'[$]?\d[\d.,]*', '', texto_limpio)
+    texto_limpio = re.sub(patron_palabras, '', texto_limpio, flags=re.IGNORECASE)
     
-    return texto_final, total
+    # Limpiar espacios y puntuación sobrante
+    texto_limpio = re.sub(r'\s+', ' ', texto_limpio).strip(' ,.;')
+    
+    return texto_limpio, sum(valores)
 
+# Pruebas
 print(separar_texto_valor("Uber Delivery, $25,000 pesos."))
+print(separar_texto_valor("Compra de cinco mil pesos"))
+print(separar_texto_valor("Transferencia de $1,500 más dos mil en efectivo"))
+print(separar_texto_valor("Pago de cuatrocientos cincuenta por servicios"))
+print(separar_texto_valor("Compra $150 y propina de veinte pesos"))
