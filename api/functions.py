@@ -31,3 +31,5 @@
 #     predicted_class_id = logits.argmax(axis=1)[0]
 
 #     return id2label[str(predicted_class_id)]
+
+import tflite_runtime.interpreter as tflite
