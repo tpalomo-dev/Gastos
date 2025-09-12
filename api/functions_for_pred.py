@@ -189,15 +189,15 @@ async def save_text_to_db(text: str, category: str, amount: int = 0):
         logger.error(f"Database error: {str(e)}")
 
 async def process_text_message(text: str, chat_id: int):
-    text, amount = separar_texto_valor(text)
+    text_new, amount = separar_texto_valor(text)
     # Predict category
-    category = predict_category(text)
+    category = predict_category(text_new)
     
     # Save text + category to DB
-    await save_text_to_db(text = text, category = category, amount = amount)
+    await save_text_to_db(text = text_new, category = category, amount = amount)
     
     # Send reply to Telegram
-    await send_telegram_message(chat_id, f"Dijiste: {text} con categoría {category} y precio {amount}")
+    await send_telegram_message(chat_id, f"{text}, transformado a {text_new} con categoría {category} y precio {amount}")
     
     return JSONResponse({"status": "text_received", "text": text, "category": category})
 
