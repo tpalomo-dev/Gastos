@@ -1,8 +1,0 @@
-{
-  "model_type": "tfidf_pretrained_embeddings_logistic",
-  "tfidf_features": 82,
-  "embedding_vector_size": 100,
-  "embedding_vocab_size": 41,
-  "total_features": 182,
-  "num_classes": 9
-}

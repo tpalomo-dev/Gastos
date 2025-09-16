@@ -1,7 +1,5 @@
-import json
 import numpy as np
 import re
-import unicodedata
 import os
 import aiohttp
 from fastapi.responses import JSONResponse
@@ -15,120 +13,94 @@ from rescatar_valor_numerico import separar_texto_valor
 
 # Build paths relative to this script
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MODEL_DIR = os.path.join(BASE_DIR, "lightweight_model")
+MODEL_DIR = os.path.join(BASE_DIR, "model/mlp_embeddings_model.npz")
+EMB_DIR = os.path.join(BASE_DIR, "model/combined_embeddings.vec")
 
-# --- Load exported model ---
-def load_model(output_dir):
-    # TF-IDF
-    with open(f"{output_dir}/tfidf_data.json", 'r', encoding='utf-8') as f:
-        tfidf_data = json.load(f)
-    
-    tfidf_vocab = tfidf_data['vocabulary']
-    tfidf_idf = np.array(tfidf_data['idf'])
-    
-    # Embeddings
-    embedding_matrix = np.load(f"{output_dir}/embeddings.npy")
-    with open(f"{output_dir}/embeddings_data.json", 'r', encoding='utf-8') as f:
-        embeddings_data = json.load(f)
-    vocab_to_idx = embeddings_data['vocab_to_idx']
-    vector_size = embeddings_data['vector_size']
-    
-    # Classifier
-    with open(f"{output_dir}/classifier_data.json", 'r', encoding='utf-8') as f:
-        clf_data = json.load(f)
-    coef = np.array(clf_data['coef'])
-    intercept = np.array(clf_data['intercept'])
-    classes = clf_data['classes']
-    
-    # Categories
-    with open(f"{output_dir}/categories.json", 'r', encoding='utf-8') as f:
-        categories = json.load(f)
-    
-    return {
-        'tfidf_vocab': tfidf_vocab,
-        'tfidf_idf': tfidf_idf,
-        'embedding_matrix': embedding_matrix,
-        'vocab_to_idx': vocab_to_idx,
-        'vector_size': vector_size,
-        'coef': coef,
-        'intercept': intercept,
-        'classes': classes,
-        'categories': categories
-    }
+# ---- Utilities ----
 
-# --- Preprocessing ---
-
-def preprocess_spanish_text(text):
+def preprocess_spanish_text(text: str) -> str:
     text = str(text).lower()
-    text = ''.join(c for c in unicodedata.normalize('NFD', text)
-                   if unicodedata.category(c) != 'Mn' or c in 'ñü')
     text = re.sub(r'[^a-záéíóúüñ0-9\s]', ' ', text)
     text = re.sub(r'\s+', ' ', text).strip()
     return text
 
-# --- TF-IDF transform using saved vocab ---
-def tfidf_transform(texts, tfidf_vocab, tfidf_idf):
-    features = np.zeros((len(texts), len(tfidf_vocab)))
-    word_to_index = tfidf_vocab
-    idf = tfidf_idf
-    
-    for i, text in enumerate(texts):
-        counts = {}
-        for word in text.split():
-            if word in word_to_index:
-                idx = word_to_index[word]
-                counts[idx] = counts.get(idx, 0) + 1
-        max_count = max(counts.values(), default=1)
-        for idx, count in counts.items():
-            features[i, idx] = (count / max_count) * idf[idx]
-    return features
 
-# --- Embedding features ---
-def get_text_embedding(text, embedding_matrix, vocab_to_idx, vector_size=100):
-    vectors = []
-    for word in text.split():
-        idx = vocab_to_idx.get(word, 0)  # UNK
-        vectors.append(embedding_matrix[idx])
-    if vectors:
-        return np.mean(vectors, axis=0)
-    else:
-        return np.zeros(vector_size)
+def relu(x): return np.maximum(0, x)
+def softmax(x):
+    exps = np.exp(x - np.max(x, axis=1, keepdims=True))
+    return exps / np.sum(exps, axis=1, keepdims=True)
 
-# --- Logistic regression prediction ---
-def predict(X, coef, intercept):
-    logits = X @ coef.T + intercept
-    probs = 1 / (1 + np.exp(-logits))
-    
-    # Multi-class (one-vs-rest)
-    if probs.shape[1] > 1:
-        preds = np.argmax(probs, axis=1)
-    else:
-        preds = (probs >= 0.5).astype(int).flatten()
-    return preds
+def load_local_spanish_embeddings(path=EMB_DIR):
+    embeddings = {}
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            for i, line in enumerate(f):
+                if i == 0:
+                    continue
+                parts = line.strip().split(' ')
+                if len(parts) < 2:
+                    continue
+                word = parts[0]
+                vector = np.array([float(x) for x in parts[1:]])
+                embeddings[word] = vector
+        return embeddings
+    except Exception as e:
+        logger.error(f"Failed to load embeddings: {e}")
+        return None
 
-# --- Inference example ---
 
-def predict_category(text: str):
-    
-    model = load_model(MODEL_DIR)
-    
-    # Preprocess
-    text_proc = preprocess_spanish_text(text)
-    
-    # TF-IDF features
-    tfidf_features = tfidf_transform([text_proc], model['tfidf_vocab'], model['tfidf_idf'])
-    
-    # Embedding features
-    emb_features = get_text_embedding(text_proc, model['embedding_matrix'], model['vocab_to_idx'], model['vector_size'])
-    emb_features = emb_features.reshape(1, -1)  # make it 2D to match hstack
-    
-    # Combine features
-    X_combined = np.hstack([tfidf_features, emb_features])
-    
-    # Predict
-    pred = predict(X_combined, model['coef'], model['intercept'])[0]
-    pred_label = model['categories']['label_names'][pred]
-    return pred_label
+def create_embedding_matrix(embeddings_dict):
+    vector_size = len(next(iter(embeddings_dict.values())))
+    vocab_to_idx = {'<UNK>': 0}
+    idx_to_vocab = {0: '<UNK>'}
+    embedding_matrix = [np.random.normal(0, 0.1, vector_size)]
+    for i, (word, vector) in enumerate(embeddings_dict.items(), 1):
+        vocab_to_idx[word] = i
+        idx_to_vocab[i] = word
+        embedding_matrix.append(vector)
+    return np.array(embedding_matrix), vocab_to_idx, idx_to_vocab, vector_size
+
+def get_text_embedding(text, embedding_matrix, vocab_to_idx, vector_size):
+    words = text.split()
+    vectors = [embedding_matrix[vocab_to_idx.get(word, 0)] for word in words]
+    return np.mean(vectors, axis=0) if vectors else np.zeros(vector_size)
+
+# ---- Classifier ----
+
+class SpanishTextClassifier:
+    def __init__(self, model_path=MODEL_DIR, emb_path=EMB_DIR):
+        # Load model weights
+        data = np.load(model_path, allow_pickle=True)
+        self.W1, self.b1 = data["W1"], data["b1"]
+        self.W2, self.b2 = data["W2"], data["b2"]
+        self.label_names = data["label_names"]
+
+        # Load embeddings
+        embeddings = load_local_spanish_embeddings(emb_path)
+        self.embedding_matrix, self.vocab_to_idx, self.idx_to_vocab, self.vector_size = create_embedding_matrix(embeddings)
+
+    def predict(self, text: str) -> str:
+        text = preprocess_spanish_text(text)
+        emb = get_text_embedding(text, self.embedding_matrix, self.vocab_to_idx, self.vector_size)
+        x = emb.reshape(1, -1)
+        h = relu(x @ self.W1 + self.b1)
+        out = softmax(h @ self.W2 + self.b2)
+        pred_idx = int(np.argmax(out, axis=1)[0])
+        return self.label_names[pred_idx]
+
+# ---- Singleton instance ----
+_classifier_instance = None
+
+def get_classifier() -> SpanishTextClassifier:
+    global _classifier_instance
+    if _classifier_instance is None:
+        _classifier_instance = SpanishTextClassifier()
+    return _classifier_instance
+
+# ---- Function to keep your old interface ----
+def predict_category(text: str) -> str:
+    classifier = get_classifier()
+    return classifier.predict(text)
 
 # Environment variables
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
@@ -143,8 +115,8 @@ if not HF_TOKEN:
 # Hugging Face client
 client = InferenceClient(
     api_key=HF_TOKEN,
-    headers={"Content-Type": "audio/ogg"}
-)
+    headers={"Content-Type": "audio/ogg"})
+
 # -------------------- Helper Functions -------------------- #
 
 async def download_telegram_audio(file_id: str) -> bytes:
