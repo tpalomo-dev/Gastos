@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 import sys
 
 sys.path.append(os.path.dirname(__file__))
-from functions_for_pred import process_voice_message, process_text_message, format_summaries_as_table
+from functions_for_pred import send_telegram_message, process_voice_message, process_text_message, format_summaries_as_table
 
 app = FastAPI()
 
@@ -34,8 +34,8 @@ async def telegram_webhook(req: Request):
             elif message["text"] == "Reporte":
                 return await format_summaries_as_table(message["chat"]["id"])
             else:
-                pass
-            
+                send_telegram_message(message["chat"]["id"], "no reconocio el mensaje compare")
+                return []
         else:
             logger.warning(f"Unknown message type: {message.keys()}")
             return JSONResponse({"status": "unknown_message_type"})

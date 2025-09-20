@@ -201,7 +201,7 @@ async def process_voice_message(message: dict):
 
 # -------------------- Reportería -------------------- #
 
-async def fetch_expenses():
+async def fetch_expenses(chat_id: int):
     try:
         conn = await asyncpg.connect(DATABASE_URL)
         try:
@@ -209,6 +209,7 @@ async def fetch_expenses():
                 "SELECT timestamp, tipo_de_gasto, monto FROM gastos_db"
             )
             logger.error("fetch_expenses seemed to work")
+            await send_telegram_message(chat_id, "got the data from the ddbb dude")
             # Convert to list of dicts for easier processing
             return [
                 {"timestamp": row["timestamp"], "tipo": row["Tipo_de_gasto"], "monto": row["Monto"]}
@@ -217,6 +218,7 @@ async def fetch_expenses():
         finally:
             await conn.close()
     except Exception as e:
+        await send_telegram_message(chat_id, f"didnt got the data from the ddbb {str(e)}")
         logger.error(f"Database error: {str(e)}")
         return []
 
@@ -254,9 +256,9 @@ def project_end_of_month(expenses):
     projection = {tipo: monto / days_passed * total_days for tipo, monto in sums_so_far.items()}
     return projection
 
-async def calculate_summaries():
+def calculate_summaries(chat_id):
     
-    expenses = await fetch_expenses()
+    expenses = fetch_expenses(chat_id)
     
     now = datetime.now()
     # Last 7 days
@@ -285,10 +287,10 @@ async def calculate_summaries():
         "projection_end_of_month": projection,
     }
 
-async def format_summaries_as_table(chat_id: int):
-    
-    summaries = calculate_summaries()
-    
+def format_summaries_as_table(chat_id: int):
+    send_telegram_message(chat_id, "entro en la función format_summaries")
+    summaries = calculate_summaries(chat_id)
+    send_telegram_message(chat_id, "salio de la función format_summaries")
     msg = "*Expense Summary*\n\n"  # Markdown bold
     for period, data in summaries.items():
         msg += f"*{period.replace('_', ' ').title()}*\n"
@@ -297,9 +299,8 @@ async def format_summaries_as_table(chat_id: int):
         for tipo, monto in data.items():
             msg += f"{tipo:<15} | {monto:>7}\n"
         msg += "\n"
-        
+    
     # Send reply to Telegram
     await send_telegram_message(chat_id, msg)
     
     return JSONResponse({"status": "returned report"})
-
