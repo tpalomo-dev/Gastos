@@ -32,7 +32,7 @@ async def telegram_webhook(req: Request):
             if message["text"]!= "Reporte":
                 return await process_text_message(message["text"], message["chat"]["id"])
             elif message["text"]=="Reporte":
-                return pass
+                pass
         else:
             logger.warning(f"Unknown message type: {message.keys()}")
             return JSONResponse({"status": "unknown_message_type"})
