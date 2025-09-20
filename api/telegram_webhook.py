@@ -13,7 +13,13 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
 )
-logger = logging.getLogger("app")  # Use a consistent logger name
+logger = logging.getLogger("telegram_webhook")  # single consistent logger
+
+# FastAPI app
+app = FastAPI()
+
+# Log a startup message immediately
+logger.info("FastAPI app is starting up! This log should appear in Vercel.")
 
 @app.post("/telegram_webhook")
 async def telegram_webhook(req: Request):
