@@ -153,7 +153,7 @@ async def save_text_to_db(text: str, category: str, amount: int = 0):
         conn = await asyncpg.connect(DATABASE_URL)
         try:
             await conn.execute(
-                "INSERT INTO telegram_messages (Gasto, Tipo_de_gasto, Monto) VALUES ($1, $2, $3)",
+                "INSERT INTO Gastos_ddbb (Gasto, Tipo_de_gasto, Monto) VALUES ($1, $2, $3)",
                 text, category, amount
             )
             logger.info("Text message saved to database")
@@ -204,8 +204,9 @@ async def fetch_expenses():
         conn = await asyncpg.connect(DATABASE_URL)
         try:
             rows = await conn.fetch(
-                "SELECT timestamp, Tipo_de_gasto, Monto FROM telegram_messages"
+                "SELECT timestamp, Tipo_de_gasto, Monto FROM Gastos_ddbb"
             )
+            logger.error(f"fetch_expenses seemed to work")
             # Convert to list of dicts for easier processing
             return [
                 {"timestamp": row["timestamp"], "tipo": row["Tipo_de_gasto"], "monto": row["Monto"]}
