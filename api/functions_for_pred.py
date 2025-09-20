@@ -151,7 +151,7 @@ async def save_text_to_db(text: str, category: str, chat_id, amount: int = 0):
         conn = await asyncpg.connect(DATABASE_URL)
         try:
             await conn.execute(
-                "INSERT INTO gastos_db (text, type, amount) VALUES ($1, $2, $3)",
+                "INSERT INTO gastos_db (gasto, tipo_de_gasto, monto) VALUES ($1, $2, $3)",
                 text, category, amount
             )
             await send_telegram_message(chat_id, "No problem with the writing")
