@@ -227,10 +227,14 @@ def sum_by_category(expenses, start_date=None):
     returns: dict {tipo_de_gasto: sum_of_monto}
     """
     sums = defaultdict(int)
+    total = 0
     for e in expenses:
         if start_date and e["timestamp"] < start_date:
             continue
         sums[e["tipo"]] += e["monto"]
+        total += e["monto"]
+    sums["total"] = total
+    
     return dict(sums)
 
 def project_end_of_month(expenses):
@@ -286,9 +290,9 @@ async def calculate_summaries(chat_id):
     }
 
 async def format_summaries_as_table(chat_id: int):
-    await send_telegram_message(chat_id, "entro en la función format_summaries")
+
     summaries = await calculate_summaries(chat_id)
-    await send_telegram_message(chat_id, "salio de la función format_summaries")
+
     msg = "*Expense Summary*\n\n"  # Markdown bold
     for period, data in summaries.items():
         msg += f"*{period.replace('_', ' ').title()}*\n"
