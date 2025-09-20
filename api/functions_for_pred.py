@@ -153,14 +153,15 @@ async def save_text_to_db(text: str, category: str, amount: int = 0):
         conn = await asyncpg.connect(DATABASE_URL)
         try:
             await conn.execute(
-                "INSERT INTO Gastos_ddbb (Gasto, Tipo_de_gasto, Monto) VALUES ($1, $2, $3)",
+                """INSERT INTO "Gastos_ddbb" (Gasto, Tipo_de_gasto, Monto) VALUES ($1, $2, $3)""",
                 text, category, int(amount)
             )
             logger.info("Text message saved to database")
         finally:
             await conn.close()
     except Exception as e:
-        logger.error(f"Database error: {str(e)}")
+        print(f"DB connection failed: {e}")  # Always shows in Vercel logs
+
 
 async def process_text_message(text: str, chat_id: int):
     text_new, amount = separar_texto_valor(text)
