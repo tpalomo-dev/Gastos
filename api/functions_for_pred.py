@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 from huggingface_hub import InferenceClient
 import logging
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("app")
 import sys
 sys.path.append(os.path.dirname(__file__))
 from rescatar_valor_numerico import separar_texto_valor
@@ -32,9 +32,6 @@ if not HF_TOKEN:
 client = InferenceClient(
     api_key=HF_TOKEN,
     headers={"Content-Type": "audio/ogg"})
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 # ---- Utilities for spanish processing and embeddings----
 
