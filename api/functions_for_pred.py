@@ -33,7 +33,6 @@ client = InferenceClient(
     api_key=HF_TOKEN,
     headers={"Content-Type": "audio/ogg"})
 
-
 # ---- Utilities for spanish processing and embeddings----
 
 def preprocess_spanish_text(text: str) -> str:
