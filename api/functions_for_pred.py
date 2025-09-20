@@ -298,7 +298,9 @@ async def format_summaries_as_table(chat_id: int):
         msg += "Tipo de Gasto | Monto\n"
         msg += "-------------|------\n"
         for tipo, monto in data.items():
-            msg += f"{tipo:<15} | {monto:>7}\n"
+            # Format monto as currency with $ and dot as thousands separator, no decimals
+            formatted_monto = f"${int(monto):,}".replace(",", ".")
+            msg += f"{tipo:<15} | {formatted_monto:>7}\n"
         msg += "\n"
     
     # Send reply to Telegram
