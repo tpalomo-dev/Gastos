@@ -12,6 +12,7 @@ from functions_for_pred import process_voice_message, process_text_message, form
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    stream=sys.stdout,  # ensure logs go to stdout
 )
 logger = logging.getLogger("telegram_webhook")
 
