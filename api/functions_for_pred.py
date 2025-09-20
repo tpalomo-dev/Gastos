@@ -33,6 +33,9 @@ client = InferenceClient(
     api_key=HF_TOKEN,
     headers={"Content-Type": "audio/ogg"})
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 # ---- Utilities for spanish processing and embeddings----
 
 def preprocess_spanish_text(text: str) -> str:
@@ -150,6 +153,7 @@ async def send_telegram_message(chat_id: int, text: str):
 
 async def save_text_to_db(text: str, category: str, amount: int = 0):
     try:
+        logger.info(f"DATABASE_URL is: {DATABASE_URL}")
         conn = await asyncpg.connect(DATABASE_URL)
         try:
             await conn.execute(
@@ -160,7 +164,7 @@ async def save_text_to_db(text: str, category: str, amount: int = 0):
         finally:
             await conn.close()
     except Exception as e:
-        print(f"DB connection failed: {e}")  # Always shows in Vercel logs
+       logger.error(f"DB connection failed: {e}")  # Always shows in Vercel logs
 
 
 async def process_text_message(text: str, chat_id: int):
