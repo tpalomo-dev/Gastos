@@ -205,7 +205,6 @@ async def fetch_expenses(chat_id: int):
                 "SELECT timestamp, tipo_de_gasto, monto FROM gastos_db"
             )
             logger.error("fetch_expenses seemed to work")
-            await send_telegram_message(chat_id, "got the data from the ddbb dude")
             # Convert to list of dicts for easier processing
             return [
                 {"timestamp": row["timestamp"], "tipo": row["tipo_de_gasto"], "monto": row["monto"]}
