@@ -211,10 +211,12 @@ async def fetch_expenses(chat_id: int):
                 {"timestamp": row["timestamp"], "tipo": row["tipo_de_gasto"], "monto": row["monto"]}
                 for row in rows
             ]
+        except Exception as e:
+            await send_telegram_message(chat_id, f"didnt got the data from the ddbb {str(e)}")
         finally:
             await conn.close()
     except Exception as e:
-        await send_telegram_message(chat_id, f"didnt got the data from the ddbb {str(e)}")
+        await send_telegram_message(chat_id, f"didnt connect to the ddbb {str(e)}")
         logger.error(f"Database error: {str(e)}")
         return []
 
