@@ -282,7 +282,7 @@ async def calculate_summaries():
         "projection_end_of_month": projection,
     }
 
-def format_summaries_as_table(chat_id: int):
+async def format_summaries_as_table(chat_id: int):
     
     summaries = calculate_summaries()
     

@@ -4,7 +4,6 @@ import traceback
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 import sys
-
 sys.path.append(os.path.dirname(__file__))
 from functions_for_pred import process_voice_message, process_text_message, format_summaries_as_table
 
