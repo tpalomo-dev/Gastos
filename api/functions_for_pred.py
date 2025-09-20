@@ -287,10 +287,10 @@ def calculate_summaries(chat_id):
         "projection_end_of_month": projection,
     }
 
-def format_summaries_as_table(chat_id: int):
-    send_telegram_message(chat_id, "entro en la función format_summaries")
+async def format_summaries_as_table(chat_id: int):
+    await send_telegram_message(chat_id, "entro en la función format_summaries")
     summaries = calculate_summaries(chat_id)
-    send_telegram_message(chat_id, "salio de la función format_summaries")
+    await send_telegram_message(chat_id, "salio de la función format_summaries")
     msg = "*Expense Summary*\n\n"  # Markdown bold
     for period, data in summaries.items():
         msg += f"*{period.replace('_', ' ').title()}*\n"
@@ -301,6 +301,6 @@ def format_summaries_as_table(chat_id: int):
         msg += "\n"
     
     # Send reply to Telegram
-    send_telegram_message(chat_id, msg)
+    await send_telegram_message(chat_id, msg)
     
     return JSONResponse({"status": "returned report"})
