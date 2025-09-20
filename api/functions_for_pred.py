@@ -154,10 +154,10 @@ async def save_text_to_db(text: str, category: str, chat_id, amount: int = 0):
                 "INSERT INTO gastos_db (text, type, amount) VALUES ($1, $2, $3)",
                 text, category, amount
             )
-            send_telegram_message(chat_id, "no problem with the writing")
+            await send_telegram_message(chat_id, "no problem with the writing")
         finally:
             await conn.close()
-            send_telegram_message(chat_id, "conn closed")
+            await send_telegram_message(chat_id, "conn closed")
     except Exception as e:
         send_telegram_message(chat_id, f"Database error: {str(e)}")
 
