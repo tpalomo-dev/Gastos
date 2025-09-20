@@ -30,9 +30,9 @@ async def telegram_webhook(req: Request):
             return await process_voice_message(message)
         elif message.get("text"):
             if message["text"] != "Reporte":
-                return await process_text_message(message["text"], message["chat"]["id"])
+                return process_text_message(message["text"], message["chat"]["id"])
             elif message["text"] == "Reporte":
-                return await format_summaries_as_table(message["chat"]["id"])
+                return format_summaries_as_table(message["chat"]["id"])
             else:
                 send_telegram_message(message["chat"]["id"], "no reconocio el mensaje compare")
                 return []
