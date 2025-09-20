@@ -4,11 +4,9 @@ import os
 import aiohttp
 from fastapi.responses import JSONResponse
 import asyncpg
-from datetime import datetime, timedelta
-from collections import defaultdict
 from huggingface_hub import InferenceClient
 import logging
-logger = logging.getLogger("telegram_webhook")
+logger = logging.getLogger(__name__)
 import sys
 sys.path.append(os.path.dirname(__file__))
 from rescatar_valor_numerico import separar_texto_valor
@@ -18,22 +16,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MODEL_DIR = os.path.join(BASE_DIR, "model/mlp_embeddings_model.npz")
 EMB_DIR = os.path.join(BASE_DIR, "model/combined_embeddings.vec")
 
-# Environment variables
-TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
-DATABASE_URL = os.getenv("DATABASE_URL")
-HF_TOKEN = os.getenv("HF_TOKEN")
-
-if not TELEGRAM_TOKEN:
-    logger.error("TELEGRAM_TOKEN not found in environment variables")
-if not HF_TOKEN:
-    logger.error("HF_TOKEN not found in environment variables")
-
-# Hugging Face client
-client = InferenceClient(
-    api_key=HF_TOKEN,
-    headers={"Content-Type": "audio/ogg"})
-
-# ---- Utilities for spanish processing and embeddings----
+# ---- Utilities ----
 
 def preprocess_spanish_text(text: str) -> str:
     text = str(text).lower()
@@ -119,7 +102,22 @@ def predict_category(text: str) -> str:
     classifier = get_classifier()
     return classifier.predict(text)
 
-# -------------------- webhook and processing Functions -------------------- #
+# Environment variables
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
+DATABASE_URL = os.getenv("DATABASE_URL")
+HF_TOKEN = os.getenv("HF_TOKEN")
+
+if not TELEGRAM_TOKEN:
+    logger.error("TELEGRAM_TOKEN not found in environment variables")
+if not HF_TOKEN:
+    logger.error("HF_TOKEN not found in environment variables")
+
+# Hugging Face client
+client = InferenceClient(
+    api_key=HF_TOKEN,
+    headers={"Content-Type": "audio/ogg"})
+
+# -------------------- Helper Functions -------------------- #
 
 async def download_telegram_audio(file_id: str) -> bytes:
     async with aiohttp.ClientSession() as session:
@@ -150,19 +148,17 @@ async def send_telegram_message(chat_id: int, text: str):
 
 async def save_text_to_db(text: str, category: str, amount: int = 0):
     try:
-        logger.info(f"DATABASE_URL is: {DATABASE_URL}")
         conn = await asyncpg.connect(DATABASE_URL)
         try:
             await conn.execute(
-                "INSERT INTO gastos_db (gasto, tipo_de_gasto, monto) VALUES ($1, $2, $3)",
-                text, category, int(amount)
+                "INSERT INTO gastos_db (text, type, amount) VALUES ($1, $2, $3)",
+                text, category, amount
             )
             logger.info("Text message saved to database")
         finally:
             await conn.close()
     except Exception as e:
-       logger.error(f"DB connection failed: {e}")  # Always shows in Vercel logs
-
+        logger.error(f"Database error: {str(e)}")
 
 async def process_text_message(text: str, chat_id: int):
     text_new, amount = separar_texto_valor(text)
@@ -197,109 +193,3 @@ async def process_voice_message(message: dict):
 
     # Predict category and Save transcription + category to DB
     return await process_text_message(transcription, chat_id)
-
-
-# -------------------- Reportería -------------------- #
-
-async def fetch_expenses():
-    try:
-        conn = await asyncpg.connect(DATABASE_URL)
-        try:
-            rows = await conn.fetch(
-                "SELECT timestamp, tipo_de_gasto, monto FROM gastos_db"
-            )
-            logger.error("fetch_expenses seemed to work")
-            # Convert to list of dicts for easier processing
-            return [
-                {"timestamp": row["timestamp"], "tipo": row["Tipo_de_gasto"], "monto": row["Monto"]}
-                for row in rows
-            ]
-        finally:
-            await conn.close()
-    except Exception as e:
-        logger.error(f"Database error: {str(e)}")
-        return []
-
-def sum_by_category(expenses, start_date=None):
-    """
-    expenses: list of dicts with keys timestamp, tipo, monto
-    start_date: optional datetime to filter by
-    returns: dict {tipo_de_gasto: sum_of_monto}
-    """
-    sums = defaultdict(int)
-    for e in expenses:
-        if start_date and e["timestamp"] < start_date:
-            continue
-        sums[e["tipo"]] += e["monto"]
-    return dict(sums)
-
-def project_end_of_month(expenses):
-    """
-    Linear projection: current sum / days_passed * total_days_in_month
-    """
-
-    now = datetime.now()
-    start_of_month = now.replace(day=1)
-    # Days passed in month (including today)
-    days_passed = (now - start_of_month).days + 1
-    # Total days in month
-    if now.month == 12:
-        next_month = datetime(now.year + 1, 1, 1)
-    else:
-        next_month = datetime(now.year, now.month + 1, 1)
-    total_days = (next_month - start_of_month).days
-    
-    sums_so_far = sum_by_category(expenses, start_date=start_of_month)
-    
-    projection = {tipo: monto / days_passed * total_days for tipo, monto in sums_so_far.items()}
-    return projection
-
-async def calculate_summaries():
-    
-    expenses = await fetch_expenses()
-    
-    now = datetime.now()
-    # Last 7 days
-    last_7_days = now - timedelta(days=7)
-    
-    # Last 31 days
-    last_31_days = now - timedelta(days=31)
-    
-    # Start of week (Monday)
-    start_of_week = now - timedelta(days=now.weekday())
-    
-    # Start of month
-    start_of_month = now.replace(day=1)
-    
-    last7 = sum_by_category(expenses, last_7_days)
-    last31 = sum_by_category(expenses, last_31_days)
-    week = sum_by_category(expenses, start_of_week)
-    month = sum_by_category(expenses, start_of_month)
-    projection = project_end_of_month(expenses)
-    
-    return {
-        "last_7_days": last7,
-        "last_31_days": last31,
-        "this_week": week,
-        "this_month": month,
-        "projection_end_of_month": projection,
-    }
-
-async def format_summaries_as_table(chat_id: int):
-    
-    summaries = calculate_summaries()
-    
-    msg = "*Expense Summary*\n\n"  # Markdown bold
-    for period, data in summaries.items():
-        msg += f"*{period.replace('_', ' ').title()}*\n"
-        msg += "Tipo de Gasto | Monto\n"
-        msg += "-------------|------\n"
-        for tipo, monto in data.items():
-            msg += f"{tipo:<15} | {monto:>7}\n"
-        msg += "\n"
-        
-    # Send reply to Telegram
-    await send_telegram_message(chat_id, msg)
-    
-    return JSONResponse({"status": "returned report"})
-
