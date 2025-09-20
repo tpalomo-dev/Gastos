@@ -301,6 +301,6 @@ def format_summaries_as_table(chat_id: int):
         msg += "\n"
     
     # Send reply to Telegram
-    await send_telegram_message(chat_id, msg)
+    send_telegram_message(chat_id, msg)
     
     return JSONResponse({"status": "returned report"})
