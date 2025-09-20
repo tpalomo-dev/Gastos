@@ -146,7 +146,7 @@ async def send_telegram_message(chat_id: int, text: str):
             logger.error(f"Failed to send Telegram message: {response.status}")
 
 
-async def save_text_to_db(text: str, category: str, amount: int = 0):
+async def save_text_to_db(text: str, category: str, chat_id, amount: int = 0):
     try:
         conn = await asyncpg.connect(DATABASE_URL)
         try:
@@ -154,11 +154,12 @@ async def save_text_to_db(text: str, category: str, amount: int = 0):
                 "INSERT INTO gastos_db (text, type, amount) VALUES ($1, $2, $3)",
                 text, category, amount
             )
-            logger.info("Text message saved to database")
+            send_telegram_message(chat_id, "no problem with the writing")
         finally:
             await conn.close()
+            send_telegram_message(chat_id, "conn closed")
     except Exception as e:
-        logger.error(f"Database error: {str(e)}")
+        send_telegram_message(chat_id, f"Database error: {str(e)}")
 
 async def process_text_message(text: str, chat_id: int):
     text_new, amount = separar_texto_valor(text)
@@ -166,7 +167,7 @@ async def process_text_message(text: str, chat_id: int):
     category = predict_category(text_new)
     
     # Save text + category to DB
-    await save_text_to_db(text = text_new, category = category, amount = amount)
+    await save_text_to_db(text = text_new, category = category, chat_id=chat_id, amount = amount)
     
     # Send reply to Telegram
     await send_telegram_message(chat_id, f"{text}, transformado a {text_new} con categoría {category} y precio {amount}")
