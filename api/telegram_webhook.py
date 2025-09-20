@@ -1,76 +1,29 @@
-import os
+from fastapi import FastAPI, Request
 import logging
-import traceback
-from fastapi import FastAPI, Request, Response
-from fastapi.responses import JSONResponse
-import sys
 
-sys.path.append(os.path.dirname(__file__))
-from functions_for_pred import send_telegram_message, process_voice_message, process_text_message, format_summaries_as_table
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("vercel-logs")
 
 app = FastAPI()
 
-# Logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
-@app.post("/telegram_webhook")
-async def telegram_webhook(req: Request):
-    try:
-        data = await req.json()
-        logger.info(f"Received webhook data: {data}")
-        message = data.get("message")
-        if not message:
-            return JSONResponse({"status": "no_message"})
-
-        if message.get("voice"):
-            return await process_voice_message(message)
-        elif message.get("text"):
-            if message["text"] != "Reporte":
-                return await process_text_message(message["text"], message["chat"]["id"])
-            elif message["text"] == "Reporte":
-                return await format_summaries_as_table(message["chat"]["id"])
-            else:
-                send_telegram_message(message["chat"]["id"], "no reconocio el mensaje compare")
-                return []
-        else:
-            logger.warning(f"Unknown message type: {message.keys()}")
-            return JSONResponse({"status": "unknown_message_type"})
-
-    except Exception as e:
-        logger.error(f"Unhandled error in webhook: {str(e)}")
-        logger.error(traceback.format_exc())
-        return JSONResponse({"status": "error", "error": str(e)}, status_code=500)
-
-
-@app.get("/favicon.ico")
-async def faviconico():
-    return Response(status_code=204)
-
-
-@app.get("/favicon.png")
-async def faviconpng():
-    return Response(status_code=204)
-
-
+# Example route
 @app.get("/")
-def read_root():
-    return {"message": "Hello World from FastAPI on Vercel!"}
+async def root():
+    logger.info("Root endpoint was called")
+    return {"message": "Hello from FastAPI on Vercel!"}
 
+# Route to show logs (keeps logs in memory)
+log_memory = []
 
-@app.get("/api/health")
-def health_check():
-    return {"status": "healthy"}
+@app.get("/show-logs")
+async def show_logs():
+    return {"logs": log_memory}
 
-
-@app.get("/api/test-hf")
-async def test_hf():
-    try:
-        logger.info("Testing Hugging Face client")
-        return {"status": "hf_client_initialized", "provider": "fal-ai"}
-    except Exception as e:
-        logger.error(f"HF client test failed: {str(e)}")
-        return {"status": "error", "error": str(e)}
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    log_entry = f"{request.method} {request.url.path}"
+    log_memory.append(log_entry)
+    logger.info(log_entry)
+    response = await call_next(request)
+    return response
