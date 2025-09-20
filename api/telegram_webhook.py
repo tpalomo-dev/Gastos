@@ -7,20 +7,21 @@ import sys
 sys.path.append(os.path.dirname(__file__))
 from functions_for_pred import process_voice_message, process_text_message, format_summaries_as_table
 
-app = FastAPI()
-
+# Log a startup message immediately
+# ---------- Logging Setup ----------
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
-logger = logging.getLogger("telegram_webhook")  # single consistent logger
+logger = logging.getLogger("telegram_webhook")
 
-# FastAPI app
+# ---------- FastAPI App ----------
 app = FastAPI()
-
-# Log a startup message immediately
-logger.info("FastAPI app is starting up! This log should appear in Vercel.")
-
+# ---------- Startup Event ----------
+@app.on_event("startup")
+async def startup_event():
+    logger.info("where are my logs dude")
+    
 @app.post("/telegram_webhook")
 async def telegram_webhook(req: Request):
     try:
