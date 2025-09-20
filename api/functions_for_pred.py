@@ -208,7 +208,7 @@ async def fetch_expenses(chat_id: int):
             await send_telegram_message(chat_id, "got the data from the ddbb dude")
             # Convert to list of dicts for easier processing
             return [
-                {"timestamp": row["timestamp"], "tipo": row["Tipo_de_gasto"], "monto": row["Monto"]}
+                {"timestamp": row["timestamp"], "tipo": row["tipo_de_gasto"], "monto": row["monto"]}
                 for row in rows
             ]
         finally:
@@ -252,9 +252,9 @@ def project_end_of_month(expenses):
     projection = {tipo: monto / days_passed * total_days for tipo, monto in sums_so_far.items()}
     return projection
 
-def calculate_summaries(chat_id):
+async def calculate_summaries(chat_id):
     
-    expenses = fetch_expenses(chat_id)
+    expenses = await fetch_expenses(chat_id)
     
     now = datetime.now()
     # Last 7 days
