@@ -5,6 +5,8 @@ import aiohttp
 from fastapi.responses import JSONResponse
 import asyncpg
 from huggingface_hub import InferenceClient
+from datetime import datetime, timedelta
+from collections import defaultdict
 import logging
 logger = logging.getLogger(__name__)
 import sys
@@ -192,3 +194,109 @@ async def process_voice_message(message: dict):
 
     # Predict category and Save transcription + category to DB
     return await process_text_message(transcription, chat_id)
+
+# -------------------- Reportería -------------------- #
+
+async def fetch_expenses(chat_id: int):
+    try:
+        conn = await asyncpg.connect(DATABASE_URL)
+        try:
+            rows = await conn.fetch(
+                "SELECT timestamp, tipo_de_gasto, monto FROM gastos_db"
+            )
+            logger.error("fetch_expenses seemed to work")
+            await send_telegram_message(chat_id, "got the data from the ddbb dude")
+            # Convert to list of dicts for easier processing
+            return [
+                {"timestamp": row["timestamp"], "tipo": row["Tipo_de_gasto"], "monto": row["Monto"]}
+                for row in rows
+            ]
+        finally:
+            await conn.close()
+    except Exception as e:
+        await send_telegram_message(chat_id, f"didnt got the data from the ddbb {str(e)}")
+        logger.error(f"Database error: {str(e)}")
+        return []
+
+def sum_by_category(expenses, start_date=None):
+    """
+    expenses: list of dicts with keys timestamp, tipo, monto
+    start_date: optional datetime to filter by
+    returns: dict {tipo_de_gasto: sum_of_monto}
+    """
+    sums = defaultdict(int)
+    for e in expenses:
+        if start_date and e["timestamp"] < start_date:
+            continue
+        sums[e["tipo"]] += e["monto"]
+    return dict(sums)
+
+def project_end_of_month(expenses):
+    """
+    Linear projection: current sum / days_passed * total_days_in_month
+    """
+
+    now = datetime.now()
+    start_of_month = now.replace(day=1)
+    # Days passed in month (including today)
+    days_passed = (now - start_of_month).days + 1
+    # Total days in month
+    if now.month == 12:
+        next_month = datetime(now.year + 1, 1, 1)
+    else:
+        next_month = datetime(now.year, now.month + 1, 1)
+    total_days = (next_month - start_of_month).days
+    
+    sums_so_far = sum_by_category(expenses, start_date=start_of_month)
+    
+    projection = {tipo: monto / days_passed * total_days for tipo, monto in sums_so_far.items()}
+    return projection
+
+def calculate_summaries(chat_id):
+    
+    expenses = fetch_expenses(chat_id)
+    
+    now = datetime.now()
+    # Last 7 days
+    last_7_days = now - timedelta(days=7)
+    
+    # Last 31 days
+    last_31_days = now - timedelta(days=31)
+    
+    # Start of week (Monday)
+    start_of_week = now - timedelta(days=now.weekday())
+    
+    # Start of month
+    start_of_month = now.replace(day=1)
+    
+    last7 = sum_by_category(expenses, last_7_days)
+    last31 = sum_by_category(expenses, last_31_days)
+    week = sum_by_category(expenses, start_of_week)
+    month = sum_by_category(expenses, start_of_month)
+    projection = project_end_of_month(expenses)
+    
+    return {
+        "last_7_days": last7,
+        "last_31_days": last31,
+        "this_week": week,
+        "this_month": month,
+        "projection_end_of_month": projection,
+    }
+
+async def format_summaries_as_table(chat_id: int):
+    await send_telegram_message(chat_id, "entro en la función format_summaries")
+    summaries = calculate_summaries(chat_id)
+    await send_telegram_message(chat_id, "salio de la función format_summaries")
+    msg = "*Expense Summary*\n\n"  # Markdown bold
+    for period, data in summaries.items():
+        msg += f"*{period.replace('_', ' ').title()}*\n"
+        msg += "Tipo de Gasto | Monto\n"
+        msg += "-------------|------\n"
+        for tipo, monto in data.items():
+            msg += f"{tipo:<15} | {monto:>7}\n"
+        msg += "\n"
+    
+    # Send reply to Telegram
+    await send_telegram_message(chat_id, msg)
+    
+    return JSONResponse({"status": "returned report"})
