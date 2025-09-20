@@ -154,7 +154,7 @@ async def save_text_to_db(text: str, category: str, amount: int = 0):
         try:
             await conn.execute(
                 "INSERT INTO Gastos_ddbb (Gasto, Tipo_de_gasto, Monto) VALUES ($1, $2, $3)",
-                text, category, amount
+                text, category, int(amount)
             )
             logger.info("Text message saved to database")
         finally:
