@@ -287,7 +287,7 @@ async def calculate_summaries(chat_id):
 
 async def format_summaries_as_table(chat_id: int):
     await send_telegram_message(chat_id, "entro en la función format_summaries")
-    summaries = calculate_summaries(chat_id)
+    summaries = await calculate_summaries(chat_id)
     await send_telegram_message(chat_id, "salio de la función format_summaries")
     msg = "*Expense Summary*\n\n"  # Markdown bold
     for period, data in summaries.items():
