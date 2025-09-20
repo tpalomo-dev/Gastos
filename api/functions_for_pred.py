@@ -154,12 +154,16 @@ async def save_text_to_db(text: str, category: str, chat_id, amount: int = 0):
                 "INSERT INTO gastos_db (text, type, amount) VALUES ($1, $2, $3)",
                 text, category, amount
             )
-            await send_telegram_message(chat_id, "no problem with the writing")
+            await send_telegram_message(chat_id, "No problem with the writing")
+        except Exception as e:
+            # Send the error to Telegram
+            await send_telegram_message(chat_id, f"Error writing to DB: {e}")
         finally:
             await conn.close()
-            await send_telegram_message(chat_id, "conn closed")
+            await send_telegram_message(chat_id, "Conn closed")
     except Exception as e:
-        send_telegram_message(chat_id, f"Database error: {str(e)}")
+        # Send connection errors as well
+        await send_telegram_message(chat_id, f"Error connecting to DB: {e}")
 
 async def process_text_message(text: str, chat_id: int):
     text_new, amount = separar_texto_valor(text)
