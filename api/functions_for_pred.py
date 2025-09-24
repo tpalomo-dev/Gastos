@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 import asyncpg
 from huggingface_hub import InferenceClient
 from datetime import datetime, timedelta
+import zoneinfo
 from collections import defaultdict
 import logging
 logger = logging.getLogger(__name__)
@@ -151,11 +152,15 @@ async def send_telegram_message(chat_id: int, text: str):
 async def save_text_to_db(text: str, category: str, chat_id, amount: int = 0):
     try:
         conn = await asyncpg.connect(DATABASE_URL)
+        tz = zoneinfo.ZoneInfo("America/Santiago")
+        now = datetime.now(tz).replace(tzinfo=None)  # naive, Chilean local time
         try:
             await conn.execute(
-                "INSERT INTO gastos_db (gasto, tipo_de_gasto, monto) VALUES ($1, $2, $3)",
-                text, category, amount
+                "INSERT INTO gastos_db (timestamp, gasto, tipo_de_gasto, monto) VALUES ($1, $2, $3, $4)",
+                now, text, category, amount
             )
+        except Exception as e:
+            logger.error(f"Database error: {str(e)}")
         finally:
             await conn.close()
     except Exception as e:
